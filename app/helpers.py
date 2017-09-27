@@ -2,11 +2,33 @@
 import base64
 import json
 
-from flask import request
+from flask import request, make_response
 
 from six.moves.urllib.parse import urlparse, urlunparse
 
 from .structures import CaseInsensitiveDict
+
+ASCII_ART = '''
+    -=[ teapot ]=-
+
+       _...._
+     .'  _ _ `.
+    | ."` ^ `". _,
+    \_;`"---"`|//
+      |       ;/
+      \_     _/
+        `\"\"\"`
+'''
+
+REDIRECT_LOCATION = '/redirect/1'
+
+ACCEPTED_MEDIA_TYPES = [
+    'image/webp',
+    'image/svg+xml',
+    'image/jpeg',
+    'image/png',
+    'image/*'
+]
 
 ENV_HEADERS = (
     'X-Varnish',
@@ -146,3 +168,58 @@ def get_dict(*keys, **extras):
     out_d.update(extras)
 
     return out_d
+
+
+def status_code(code):
+    '''根据给定的状态码返回响应对象'''
+
+    redirect = dict(headers=dict(location=REDIRECT_LOCATION))
+
+    code_map = {
+        301: redirect,
+        302: redirect,
+        303: redirect,
+        304: dict(data=''),
+        305: redirect,
+        307: redirect,
+        401: dict(headers={'WWW-Authenticate': 'Basic realm="Fake Realm"'}),
+        402: dict(
+            data='Fuck you, pay me!',
+            headers={
+                'x-more-info': 'http://vimeo.com/22053820'
+            }
+        ),
+        406: dict(data=json.dumps({
+                'message': 'Client did not request a supported media type.',
+                'accept': ACCEPTED_MEDIA_TYPES
+            }),
+            headers={
+                'Content-Type': 'application/json'
+            }),
+        407: dict(headers={'Proxy-Authenticate': 'Basic realm="Fake Realm"'}),
+        418: dict(  # I'm a teapot!
+            data=ASCII_ART,
+            headers={
+                'x-more-info': 'http://tools.ietf.org/html/rfc2324'
+            }
+        ),
+
+    }
+
+    r = make_response()
+    r.status_code = code
+
+    if code in code_map:
+
+        m = code_map[code]
+
+        if 'data' in m:
+            r.data = m['data']
+        if 'headers' in m:
+            r.headers = m['headers']
+
+    return r
+
+def secure_cookie():
+    '''如果 Cookie 应该具有安全属性 则返回 True'''
+    return request.environ['wsgi.url_scheme'] == 'https'

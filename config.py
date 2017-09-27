@@ -5,7 +5,7 @@ ROBOT_TXT = '''User-agent: *
 Disallow: /deny
 '''
 
-ANGRY_ASCII ="""
+ANGRY_ASCII = """
           .-''''''-.
         .' _      _ '.
        /   O      O   \\
